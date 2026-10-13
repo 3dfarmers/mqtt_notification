@@ -1,0 +1,19 @@
+# Build output
+build/
+*.bin
+*.elf
+*.map
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+.venv/
+
+# Never commit settings with secrets: they belong on the board (`set ...`).
+secrets*
+*.local.*
