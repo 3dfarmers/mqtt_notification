@@ -166,6 +166,13 @@ light should change before the phone buzzes.
 - **WiFi signal** decides whether TLS works: the printer link can be fine at
   -82 dBm while every Hue request fails. `WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN)`
   makes it join the strongest mesh node; the ESP32 never roams afterwards.
+- **IPs move**: routers reassign addresses, and in a farm the old printer IP
+  then belongs to ANOTHER Bambu printer, which answers `access code rejected`
+  (MQTT state 5). Find the printer by its serial: Bambu printers announce
+  themselves by SSDP on UDP port 2021 (multicast 239.255.255.250) every few
+  seconds, with `USN: <serial>` and the IP as sender; a short Python listener
+  on the user's computer lists them all. The bridge: `hue find`. Then suggest
+  DHCP reservations in the router.
 - **The camera's first frame can be garbage** (not starting `FF D8`):
   `sendSnapshot()` skips up to 3 frames. Keep that.
 - **Opening the serial port resets a native-USB S3** and every reset drops the

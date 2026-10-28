@@ -573,7 +573,8 @@ void hueFind() {
   }
   if (reachable == 1) {
     cmdSet(String("hue_ip ") + pick);
-    LOG("[HUE] next: press the link button on the bridge, then type `hue pair`\n");
+    if (cfg.hueKey[0]) LOG("[HUE] next: `hue lights` (if the bridge refuses the key: `hue pair`)\n");
+    else LOG("[HUE] next: press the link button on the bridge, then type `hue pair`\n");
   } else if (reachable > 1) {
     LOG("[HUE] several bridges: `set hue_ip <ip>` for the one your light is on\n");
   } else {
@@ -767,15 +768,21 @@ int sendSnapshot(const Push& p, const Url& u) {
 
     uint8_t tail[2] = { xfer[first - 2], xfer[first - 1] };
     uint32_t left = len - first;
+    const char* stalled = nullptr;
     while (left) {
       size_t chunk = left < sizeof xfer ? left : sizeof xfer;
-      if (!readExact(cam, xfer, chunk, CAM_IO_MS) || !writeAll(*net, xfer, chunk)) break;
+      if (!readExact(cam, xfer, chunk, CAM_IO_MS)) { stalled = "camera"; break; }
+      if (!writeAll(*net, xfer, chunk))           { stalled = "upload"; break; }
       if (chunk >= 2) { tail[0] = xfer[chunk - 2]; tail[1] = xfer[chunk - 1]; }
       else            { tail[0] = tail[1];          tail[1] = xfer[0]; }
       left -= chunk;
     }
     result = -16;
-    if (left) { LOG("[PUSH] snapshot stalled at %u / %u B\n", (unsigned)(len - left), (unsigned)len); break; }
+    if (stalled) {
+      LOG("[PUSH] snapshot stalled at %u / %u B on the %s side (WiFi %d dBm)\n",
+          (unsigned)(len - left), (unsigned)len, stalled, WiFi.RSSI());
+      break;
+    }
     cam.stop();
     if (tail[0] != 0xFF || tail[1] != 0xD9) LOG("[PUSH] snapshot does not end in FF D9, may be cut off\n");
     result = readResponse(*net, nullptr, 0, nullptr, nullptr);
@@ -1079,7 +1086,7 @@ void serviceMqtt() {
     int st = mqtt.state();
     LOG("[MQTT] failed (state %d): %s\n", st,
         !tlsOk ? "printer not reachable on port 8883 - IP, LAN mode on, WiFi signal?"
-        : (st == 4 || st == 5) ? "access code rejected"
+        : (st == 4 || st == 5) ? "access code rejected - or printer_ip now belongs to another printer (router changed it?)"
         : "printer refused the connection (Developer Mode on newer firmware?)");
     mqtt.disconnect();
     mqttTls.stop();

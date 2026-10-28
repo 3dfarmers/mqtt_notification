@@ -7,6 +7,7 @@ what it answers. Works on Windows, macOS and Linux.
     python tools/console.py --port /dev/ttyACM0 "set wifi_ssid MyWiFi" "set wifi_pass secret" reboot
     python tools/console.py --port COM5 --wait 35 "hue pair"
     python tools/console.py --port COM5 --listen 120        # just watch the log
+    python tools/console.py --port COM5 "sim FAILED" @65 "sim FINISH"   # @N = read N s, send nothing
 
 Find the port with `arduino-cli board list` (or the Arduino IDE's port menu).
 
@@ -35,12 +36,15 @@ def redact(cmd):
 
 
 def main():
+    # A Windows console defaults to cp1252 and cannot print every character;
+    # the board's output (or noise while it resets) must never crash us.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", required=True, help="serial port, e.g. COM5 or /dev/ttyACM0")
     ap.add_argument("--boot", type=float, default=4, help="seconds to read before the first command")
     ap.add_argument("--wait", type=float, default=4, help="seconds to read after each command")
     ap.add_argument("--listen", type=float, default=0, help="seconds to keep reading at the end")
-    ap.add_argument("commands", nargs="*", help="commands to send, e.g. show")
+    ap.add_argument("commands", nargs="*", help="commands to send, e.g. show; @N reads N more seconds")
     a = ap.parse_args()
 
     s = serial.Serial()
@@ -67,6 +71,9 @@ def main():
 
     pump(a.boot)
     for cmd in a.commands:
+        if cmd.startswith("@") and cmd[1:].replace(".", "", 1).isdigit():
+            pump(float(cmd[1:]))        # a pause in the script: keep reading, send nothing
+            continue
         print(f"\n>>> {redact(cmd)}", flush=True)
         try:
             s.write((cmd + "\n").encode())

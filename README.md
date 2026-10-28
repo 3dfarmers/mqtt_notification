@@ -74,6 +74,9 @@ reboot
 
 The IP and access code are on the printer's screen in the network / LAN
 settings, the serial number in the device info (or in Bambu Studio → Device).
+Give the printer and the Hue bridge a **fixed IP** in your router (a DHCP
+reservation): if the router hands out new addresses later, the board keeps
+knocking on the old ones.
 
 Then connect the Hue bridge, still in the Serial Monitor:
 
@@ -149,6 +152,10 @@ OctoPrint). Open the folder in Claude Code and describe what you have.
 - **`[MQTT] failed`.** Check the printer IP and access code, and that LAN mode
   is on. On newer Bambu firmware, third-party tools may also need *Developer
   Mode* turned on in the printer's LAN settings.
+- **It worked, and now `access code rejected` / the light no longer reacts.**
+  The router probably gave the printer or the bridge a new IP, and the old
+  one now belongs to another device. Check the printer's IP on its screen and
+  `set printer_ip` again; run `hue find` for the bridge. Then set fixed IPs.
 - **`connected but no printer data`.** The serial number is wrong. It is case
   sensitive; the board uppercases it for you.
 - **`camera ... not answering`.** Only the A1, A1 mini, P1P and P1S have the
