@@ -114,7 +114,7 @@ light should change before the phone buzzes.
 | State machine | `feed()`, `onTransition()`, `serviceTimers()` | transitions only; old FINISH/FAILED at boot are ignored |
 | What the light shows | `showForPhase()`, `onTransition()` | colours via `L(color, brightness)` |
 | Colours | `COLOR_X/Y`, `WHITE_MIREK`, `enum Color` | CIE xy for Hue gamut C |
-| Timings | constants at the top | `FLASH_MS`, `FINISH_SHOW_MS`, `CANCEL_SHOW_MS`, ... |
+| Timings | constants at the top | `FLASH_MS`, `CANCEL_FLASH_MS`, `FINISH_SHOW_MS`, ... |
 | Cancel vs error | `SETTLE_MS`, `CANCEL_CODES`, `printErrorNow()`, late-error watch | print_error 0 or a cancel code = user cancel |
 | Hue output | `huePut(const Light&)` -> `huePutOne()` | keep-alive TLS; `serviceLight()` retries with back-off |
 | Push output | `queuePush()` -> `servicePush()` -> `sendText()` / `sendSnapshot()` | photo falls back to text |

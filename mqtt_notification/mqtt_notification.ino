@@ -12,7 +12,7 @@
 //   RUNNING                   blue, 20 % + 80 % x progress     -
 //   PAUSE                     yellow                           -
 //   FAILED, real error        red, 1 Hz flash 60 s, then red   urgent "Print failed" + camera photo
-//   FAILED, user cancel       red 10 s, then off               -
+//   FAILED, user cancel       red, blinking 2 min, then off    -
 //   FINISH                    green 30 min, then off           "Done: <file> in X h Y min"
 //   IDLE                      off                              -
 //
@@ -56,7 +56,7 @@ const uint32_t SETTLE_MS       = 1500;    // FAILED -> cancel or error. P1 / A1 
                                           // names a cancel can trail by a report.
 const uint32_t LATE_ERROR_MS   = 10000;   // a "cancel" read from code 0 becomes an
                                           // error if a real code follows in time
-const uint32_t CANCEL_SHOW_MS  = 10000;
+const uint32_t CANCEL_FLASH_MS = 2UL * 60UL * 1000UL;   // user cancel: red, blinking, then off
 const uint32_t FINISH_SHOW_MS  = 30UL * 60UL * 1000UL;
 const uint32_t FLASH_MS        = 60000;
 const uint32_t FLASH_HALF_MS   = 500;     // 1 Hz
@@ -148,6 +148,7 @@ uint32_t startMs = 0, perrAtStart = 0, failedAt = 0;
 bool     startKnown = false, classifyPending = false, lateErrorWatch = false;
 bool     flashing = false, flashLit = false, offArmed = false;
 uint32_t flashNext = 0, flashUntil = 0, offAt = 0;
+uint8_t  flashEnd = C_RED;           // what the light shows when the flash ends
 
 // ---- Hue -----------------------------------------------------------------------------
 struct Light { uint8_t color = C_OFF, bri = 0; bool instant = false; };
@@ -906,11 +907,18 @@ void showForPhase() {
   }
 }
 
-void startFailure(uint32_t now) {
+// Red is already on when either starts. A failure flashes, then stays red
+// until the next print; a cancel flashes longer, then goes off.
+void startFlash(uint32_t now, uint32_t duration, uint8_t end) {
   offArmed = false;
-  flashing = flashLit = true;            // red is already on
+  flashing = flashLit = true;
   flashNext = now + FLASH_HALF_MS;
-  flashUntil = now + FLASH_MS;
+  flashUntil = now + duration;
+  flashEnd = end;
+}
+
+void startFailure(uint32_t now) {
+  startFlash(now, FLASH_MS, C_RED);
   notifyFail();
 }
 
@@ -976,10 +984,9 @@ void serviceTimers() {
     LOG("[PRINT] FAILED, print_error %lu (%04X_%04X)%s: %s\n", (unsigned long)perr,
         (unsigned)(perr >> 16), (unsigned)(perr & 0xFFFF),
         code != perr ? ", left from before this print" : "",
-        cancel ? "user cancel - red 10 s, no push" : "error - flash + push");
+        cancel ? "user cancel - red, blinking 2 min, then off, no push" : "error - flash + push");
     if (cancel) {
-      offArmed = true;
-      offAt = now + CANCEL_SHOW_MS;
+      startFlash(now, CANCEL_FLASH_MS, C_OFF);
       lateErrorWatch = code == 0;
     } else {
       startFailure(now);
@@ -1000,7 +1007,7 @@ void serviceTimers() {
   if (flashing) {
     if ((int32_t)(now - flashUntil) >= 0) {
       flashing = false;
-      setLight(L(C_RED, 100));           // solid until the next print
+      setLight(flashEnd == C_OFF ? L(C_OFF, 0) : L(C_RED, 100));   // failure: solid until the next print
     } else if ((int32_t)(now - flashNext) >= 0) {
       flashLit = !flashLit;
       flashNext = now + FLASH_HALF_MS;

@@ -14,7 +14,7 @@ photo from the printer's camera so you can see what happened.
 | Printing | blue, getting brighter with progress | - |
 | Paused | yellow | - |
 | **Failed** (real error) | red, flashing for 60 s, then red | urgent "Print failed: file" + camera photo |
-| Cancelled by you | red for 10 s, then off | - |
+| Cancelled by you | red, then blinking for 2 min, then off | - |
 | **Finished** | green for 30 min, then off | "Done: file in 2 h 14 min" |
 | Idle | off | - |
 
