@@ -1044,20 +1044,50 @@ void copyQuoted(const char* v, char* out, size_t cap) {
   trimUtf8(out);
 }
 
+// The report is read where PubSubClient left it: it is not NUL-terminated,
+// so nothing may read past `end`. (A copy would cost another MQTT_BUF of
+// RAM, which the camera photo upload needs.)
+const char* findIn(const char* p, const char* end, const char* key) {
+  size_t k = strlen(key);
+  for (; p + k <= end; ++p) {
+    if (*p != *key || memcmp(p, key, k)) continue;
+    p += k;
+    while (p < end && (*p == ' ' || *p == ':')) ++p;
+    return p < end ? p : nullptr;
+  }
+  return nullptr;
+}
+
+uint32_t numIn(const char* v, const char* end) {
+  if (v < end && *v == '"') ++v;           // some fields come quoted
+  uint32_t n = 0;
+  while (v < end && *v >= '0' && *v <= '9') n = n * 10 + (uint32_t)(*v++ - '0');
+  return n;
+}
+
+void copyQuotedIn(const char* v, const char* end, char* out, size_t cap) {
+  out[0] = 0;
+  if (v >= end || *v++ != '"') return;
+  const char* e = (const char*)memchr(v, '"', (size_t)(end - v));
+  if (!e) return;
+  size_t n = (size_t)(e - v) < cap - 1 ? (size_t)(e - v) : cap - 1;
+  memcpy(out, v, n);
+  out[n] = 0;
+  trimUtf8(out);
+}
+
 void onMqtt(char*, byte* payload, unsigned int len) {
-  static char buf[MQTT_BUF + 1];
   lastRx = millis();
-  if (len > MQTT_BUF) len = MQTT_BUF;
-  memcpy(buf, payload, len);
-  buf[len] = 0;
+  const char* buf = (const char*)payload;
+  const char* end = buf + len;
   const char* v;
-  if ((v = findAfter(buf, "\"gcode_state\""))) copyQuoted(v, mState, sizeof mState);
-  if ((v = findAfter(buf, "\"mc_percent\"")))  mPct = atoi(v + (*v == '"'));
-  if ((v = findAfter(buf, "\"layer_num\"")))   mLayer = atoi(v + (*v == '"'));
-  if ((v = findAfter(buf, "\"print_error\""))) mErr = strtoul(v + (*v == '"'), nullptr, 10);
-  if ((v = findAfter(buf, "\"subtask_name\""))) {
+  if ((v = findIn(buf, end, "\"gcode_state\""))) copyQuotedIn(v, end, mState, sizeof mState);
+  if ((v = findIn(buf, end, "\"mc_percent\"")))  mPct = (int)numIn(v, end);
+  if ((v = findIn(buf, end, "\"layer_num\"")))   mLayer = (int)numIn(v, end);
+  if ((v = findIn(buf, end, "\"print_error\""))) mErr = numIn(v, end);
+  if ((v = findIn(buf, end, "\"subtask_name\""))) {
     char name[sizeof mJob];
-    copyQuoted(v, name, sizeof name);
+    copyQuotedIn(v, end, name, sizeof name);
     if (name[0]) strlcpy(mJob, name, sizeof mJob);
   }
 }
